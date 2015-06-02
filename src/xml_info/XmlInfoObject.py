@@ -69,7 +69,8 @@ class XmlInfoObject(object):
     @property
     def xml_text(self):
         if not self.is_text:
-            raise Exception('.is_text only meant for XML Text')
+            cname = self.__class__.__name__
+            raise Exception('%s.is_text only meant for XML Text' % (cname))
         return self._xml_text
     
     
@@ -89,7 +90,7 @@ class XmlInfoObject(object):
     def xml_str_path(self):
         '''Describe the locating of this parsed XML object within the document'''
         path = list()
-        for info_obj in self.xml_path:
+        for info_obj in self.xml_info_path:
             path.append(str(info_obj))
         return '.'.join(path)
     
@@ -104,14 +105,20 @@ class XmlInfoObject(object):
         
     
     @property
-    def xml_path(self):
-        path = list()
+    def xml_info_path(self):
+        '''List of info objects from root to this info object'''
+        path = list(reversed(list(self.rev_xml_info_path)))
         path.append(self)
+        return path
+        
+        
+    @property
+    def rev_xml_info_path(self):
+        '''List of info objects starting with parent to root'''
         parent = self.parent
         while parent is not None:
-            path.append(parent)
+            yield parent
             parent = parent.parent
-        return list(reversed(path))
     
     
     def __str__(self):
@@ -181,7 +188,9 @@ class XmlInfoObject(object):
         @param element: Parsed XML Object
         '''
         try:
-            self._info_children.append(self.wrap_xml_element(tag, element))
+            info_obj = self.wrap_xml_element(tag, element)
+            if info_obj is not None:
+                self._info_children.append(info_obj)
         except UnkownXmlElement, e:
             print "WARNING:", str(e)
                     
@@ -198,7 +207,9 @@ class XmlInfoObject(object):
         @param text: Text extracted from child XML Nodes
         ''' 
         try:
-            self._info_children.append(self.wrap_xml_text(text))
+            info_obj = self.wrap_xml_text(text)
+            if info_obj is not None:
+                self._info_children.append(info_obj)
         except UnkownXmlText, e:
             print "WARNING:", str(e)        
         
@@ -218,7 +229,7 @@ class XmlInfoObject(object):
         info_class = self.quick_wrap_xml_element(tag, element)
         if info_class is not None and info_class != self.IGNORE:
             return info_class(xml_node=element, parent_info_obj=self)
-        else:
+        elif info_class != self.IGNORE:
             raise UnkownXmlElement(self, tag)
 
 
@@ -241,7 +252,7 @@ class XmlInfoObject(object):
         info_class = self.quick_wrap_xml_text(text)
         if info_class is not None and info_class != self.IGNORE:
             return info_class(xml_text=text, parent_info_obj=self)
-        else:
+        elif info_class != self.IGNORE:
             raise UnkownXmlText(self, text)
     
     
