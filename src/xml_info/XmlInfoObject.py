@@ -5,13 +5,15 @@ import xml.dom.minidom
 
 class UnkownXmlElement(Exception):
     def __init__(self, parent, tag):
-        msg = "No object provided to wrap element <%s>" % (tag)
+        msg = "No object provided to wrap element <%s> under %s"
+        msg = msg % (tag, parent.xml_str_path)
         super(UnkownXmlElement, self).__init__(msg)
         
 
 class UnkownXmlText(Exception):
     def __init__(self, parent, text):
-        msg = "No object provided to wrap text '%s'" % (text.strip())
+        msg = "No object provided to wrap text '%s' under %s" 
+        msg = msg % (text.strip(), parent.xml_str_path)
         super(UnkownXmlText, self).__init__(msg)
         
 
