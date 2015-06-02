@@ -19,7 +19,14 @@ class DuplicateInfoNameError(Exception):
     def __init__(self, parent, name):
         msg = "Two elements have used name '%s' in %s" % (name,
                                                         parent.xml_str_path)
-        super(UnkownXmlText, self).__init__(msg)
+        super(DuplicateInfoNameError, self).__init__(msg)
+
+
+class MissingXmlAttr(Exception):
+    def __init__(self, info_obj, attr_name):
+        msg = "Xml Element %s is missing a required element '%s'"
+        msg = msg  % (info_obj.xml_str_path, attr_name)
+        super(MissingXmlAttr, self).__init__(msg)
 
 
 class XmlInfoObject(object):
@@ -38,7 +45,7 @@ class XmlInfoObject(object):
         self._info_children = list()
         self.__parent = None
         if parent_info_obj is not None:
-            self._parent = weakref.ref(parent_info_obj)
+            self.__parent = weakref.ref(parent_info_obj)
         if self._xml_node is not None:
             self._discover_xml_elements()
         
@@ -56,6 +63,12 @@ class XmlInfoObject(object):
     @property
     def is_element(self):
         return self._xml_node is not None
+    
+    @property
+    def xml_text(self):
+        if not self.is_text:
+            raise Exception('.is_text only meant for XML Text')
+        return self._xml_text
     
     
     @property
@@ -76,24 +89,34 @@ class XmlInfoObject(object):
         path = list()
         for info_obj in self.xml_path:
             path.append(str(info_obj))
-        yield '.'.join(path)
+        return '.'.join(path)
     
     
     @property
     def parent(self):
-        return self.__parent()  # Dereference weakref.  Will be None if no
-                                # parent was defined, or parent deleted (should
-                                # not happen).
+        if self.__parent is None:
+            return None
+        return self.__parent()  # Dereference weakref.  Will be None parent
+                                # deleted (should not happen as all children
+                                # hang off root under _info_children).
         
     
     @property
     def xml_path(self):
         path = list()
+        path.append(self)
         parent = self.parent
         while parent is not None:
             path.append(parent)
             parent = parent.parent
-        return reversed(path)
+        return list(reversed(path))
+    
+    
+    def __str__(self):
+        if self.is_element:
+            return '<' + self._xml_node.tagName + '>'
+        else:
+            return 'text'
     
     
     @property
@@ -215,7 +238,7 @@ class XmlInfoObject(object):
         '''
         info_class = self.quick_wrap_xml_text(text)
         if info_class is not None and info_class != self.IGNORE:
-            return info_class(text=text, info_parent=self)
+            return info_class(xml_text=text, parent_info_obj=self)
         else:
             raise UnkownXmlText(self, text)
     
@@ -251,7 +274,7 @@ class XmlInfoObject(object):
             if child.info_name == name:
                 return child
         if required:
-            msg = "%s (%s) does not have a child info object named %s"
+            msg = "%s (%s) does not have a child info object named '%s'"
             msg = msg % (self.__class__.__name__,
                         self.xml_str_path,
                         name)
@@ -265,6 +288,16 @@ class XmlInfoObject(object):
     
     def get_info_by_path(self, info_path):
         '''Find an info object by it's info_path property'''
+        
+        
+    # -- Accessing XML Properties ---------------------------------------------
+    
+    def get_xml_attr(self, name, required=False):
+        if self.is_element:
+            if self._xml_node.hasAttribute(name):
+                return self._xml_node.getAttribute(name)
+        if required:
+            raise MissingXmlAttr(self, name)
         
     
     
