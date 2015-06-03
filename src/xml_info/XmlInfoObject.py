@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 import weakref
 
 import xml.dom.minidom
+from xml.sax.saxutils import escape
 
 class UnkownXmlElement(Exception):
     def __init__(self, parent, tag):
@@ -48,9 +49,10 @@ class XmlInfoObject(object):
         self.__parent = None
         if parent_info_obj is not None:
             self.__parent = weakref.ref(parent_info_obj)
+        self.info_wrapping_errors = list()
+        self._info_path_cache = None # Used by get_info_by_path
         if self._xml_node is not None:
             self._discover_xml_elements()
-        
         
     @property
     def xml_element(self):
@@ -96,6 +98,11 @@ class XmlInfoObject(object):
     
     
     @property
+    def is_info_object(self):
+        return True
+    
+    
+    @property
     def parent(self):
         if self.__parent is None:
             return None
@@ -129,7 +136,7 @@ class XmlInfoObject(object):
     
     
     @property
-    def get_root_info(self):
+    def root_info(self):    # Renamed from get_root_info()
         '''Get highest level info object (info object with no parent)'''
         root = self
         while True:
@@ -190,8 +197,11 @@ class XmlInfoObject(object):
         try:
             info_obj = self.wrap_xml_element(tag, element)
             if info_obj is not None:
+                if not info_obj.is_info_object:
+                    raise Exception("Not an info object")
                 self._info_children.append(info_obj)
         except UnkownXmlElement, e:
+            self.info_wrapping_errors.append(e)
             print "WARNING:", str(e)
                     
         
@@ -209,8 +219,11 @@ class XmlInfoObject(object):
         try:
             info_obj = self.wrap_xml_text(text)
             if info_obj is not None:
+                if not info_obj.is_info_object:
+                    raise Exception("Not an info object")
                 self._info_children.append(info_obj)
         except UnkownXmlText, e:
+            self.info_wrapping_errors.append(e)
             print "WARNING:", str(e)        
         
         
@@ -301,7 +314,24 @@ class XmlInfoObject(object):
     
     def get_info_by_path(self, info_path):
         '''Find an info object by it's info_path property'''
+        root = self.get_root_info()
         
+        # Only use cache on root object
+        if root._info_path_cache is None:
+            root._info_path_cache = dict()
+        # Search and cache
+        if not root._info_path_cache.has_key(info_path):
+            root._info_path_cache[info_path] = None
+            if root.info_path == info_path:
+                root._info_path_cache[info_path] = root
+            else:
+                for child in root.get_all_children():
+                    if child.info_path == info_path:
+                        root._info_path_cache[info_path] = child
+                        break
+        # Returned cached value
+        return root._info_path_cache[info_path]
+
         
     # -- Accessing XML Properties ---------------------------------------------
     
@@ -311,6 +341,11 @@ class XmlInfoObject(object):
                 return self._xml_node.getAttribute(name)
         if required:
             raise MissingXmlAttr(self, name)
+        
+        
+    @staticmethod
+    def escape_xml(text):
+        return escape(text)
         
     
     
