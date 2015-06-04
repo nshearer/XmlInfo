@@ -32,6 +32,16 @@ class MissingXmlAttr(Exception):
         super(MissingXmlAttr, self).__init__(msg)
 
 
+class InfoStructureError(Exception):
+    '''Used outside this class to designate errors in the info structure
+    
+    This could be used to say things like "<table> element had 2 <pk> elements,
+    but only 1 is allowed'''
+    def __init__(self, msg, info_obj=None):
+        if info_obj is not None:
+            msg = "At %s: %s" % (info_obj.xml_str_path, msg)
+
+
 class XmlInfoObject(object):
     '''An object that wraps XML information'''
     __metaclass__ = ABCMeta
@@ -50,7 +60,7 @@ class XmlInfoObject(object):
         if parent_info_obj is not None:
             self.__parent = weakref.ref(parent_info_obj)
         self.info_wrapping_errors = list()
-        self._info_path_cache = None # Used by get_info_by_path
+        self.__info_path_cache = None # Used by get_info_by_path
         if self._xml_node is not None:
             self._discover_xml_elements()
         
@@ -314,23 +324,23 @@ class XmlInfoObject(object):
     
     def get_info_by_path(self, info_path):
         '''Find an info object by it's info_path property'''
-        root = self.get_root_info()
+        root = self.root_info
         
         # Only use cache on root object
-        if root._info_path_cache is None:
-            root._info_path_cache = dict()
+        if root.__info_path_cache is None:
+            root.__info_path_cache = dict()
         # Search and cache
-        if not root._info_path_cache.has_key(info_path):
-            root._info_path_cache[info_path] = None
+        if not root.__info_path_cache.has_key(info_path):
+            root.__info_path_cache[info_path] = None
             if root.info_path == info_path:
-                root._info_path_cache[info_path] = root
+                root.__info_path_cache[info_path] = root
             else:
                 for child in root.get_all_children():
                     if child.info_path == info_path:
-                        root._info_path_cache[info_path] = child
+                        root.__info_path_cache[info_path] = child
                         break
         # Returned cached value
-        return root._info_path_cache[info_path]
+        return root.__info_path_cache[info_path]
 
         
     # -- Accessing XML Properties ---------------------------------------------
