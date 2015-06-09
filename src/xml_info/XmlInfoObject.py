@@ -187,8 +187,12 @@ class XmlInfoObject(object):
                 else:
                     accum_text += child.data
                     
+            # Comments
+            elif child.nodeType == child.COMMENT_NODE:
+                pass
+                    
             else:
-                print "ERROR: I don't know what an XML %s is" % (child.nodeType)
+                print "ERROR: I don't know what an XML type %s is" % (child.nodeType)
                     
         # Consume any trailing text
         if accum_text is not None:
